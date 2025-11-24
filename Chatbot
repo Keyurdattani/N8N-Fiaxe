@@ -1,7 +1,7 @@
 /*
 Plugin Name: N8N Chat Widget - Mobile Card + Table Support
 Description: Mobile card-style widget with Markdown table rendering and fixed interactivity.
-Version: 3.5
+Version: 3.8
 Author: Your Name
 License: MIT
 */
@@ -10,7 +10,7 @@ add_action( 'wp_footer', function() { ?>
 <script>
 (function(){
   const CONFIG = {
-    webhookUrl: 'Paste n8n webhook url here',
+    webhookUrl: 'https://n8n.fiaxe.com/webhook/n8nhrbot',
     title: 'HR Assistant',
     primaryColor: '#2563EB',
     greeting: 'Hi! I am your HR assistant. How can I help you today?',
@@ -32,7 +32,7 @@ add_action( 'wp_footer', function() { ?>
 
     /* Base widget container */
     #n8n-chat-widget {
-      position: fixed;
+      position : fixed;
       right: 20px;
       bottom: 20px;
       z-index: 2147483647;
@@ -53,16 +53,26 @@ add_action( 'wp_footer', function() { ?>
       cursor: pointer;
       box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
       transition: transform 0.2s;
-      font-size: 24px;
       z-index: 2147483647;
     }
     .n8n-launcher:hover { transform: scale(1.05); }
+    
+    /* SVG Icon Styling for Launcher */
+    .n8n-launcher svg {
+      width: 28px;
+      height: 28px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
     /* Window */
     .n8n-window {
       position: fixed;
       right: 20px;
-      bottom: 100px;
+      bottom: 20px; 
       width: 400px;
       height: 600px;
       max-height: 80vh;
@@ -105,14 +115,28 @@ add_action( 'wp_footer', function() { ?>
       margin-left: 8px;
     }
 
+    /* Buttons in header */
     .n8n-close-btn, .n8n-clear-btn {
       background: transparent;
       border: none;
       color: #fff;
       cursor: pointer;
-      font-size: 18px;
       padding: 0 8px;
+      display: inline-flex; /* Ensures SVG centers correctly */
+      align-items: center;
+      justify-content: center;
     }
+
+    /* Header SVG Icons */
+    .n8n-clear-btn svg, .n8n-close-btn svg {
+       stroke: currentColor;
+       fill: none;
+       stroke-width: 2;
+       stroke-linecap: round;
+       stroke-linejoin: round;
+    }
+    
+    .n8n-close-btn { font-size: 18px; } /* Keep font size for the X if using text, but SVG overrides usually */
 
     /* Messages Area */
     .n8n-messages-container {
@@ -252,12 +276,21 @@ add_action( 'wp_footer', function() { ?>
   // --- HTML ---
   const root = document.createElement('div');
   root.id = 'n8n-chat-widget';
+  
+  // UPDATED: Added SVG for Trash icon matching your image
   root.innerHTML = `
     <div class="n8n-window" aria-hidden="true">
       <div class="n8n-header">
         <div style="display:flex;align-items:center">${CONFIG.title} <span class="n8n-header-badge">HR</span></div>
-        <div>
-          <button class="n8n-clear-btn" title="Clear">🗑️</button>
+        <div style="display:flex;align-items:center">
+          <button class="n8n-clear-btn" title="Clear History">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+          </button>
           <button class="n8n-close-btn" title="Close">✕</button>
         </div>
       </div>
@@ -270,7 +303,9 @@ add_action( 'wp_footer', function() { ?>
         <button type="submit" class="n8n-send-btn">➤</button>
       </form>
     </div>
-    <button class="n8n-launcher">💬</button>
+    <button class="n8n-launcher">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    </button>
   `;
   document.body.appendChild(root);
 
@@ -434,7 +469,7 @@ add_action( 'wp_footer', function() { ?>
   els.launcher.addEventListener('click', () => toggle(true));
   els.closeBtn.addEventListener('click', () => toggle(false));
   els.clearBtn.addEventListener('click', () => {
-     state.history = []; render(); push('bot', CONFIG.greeting);
+      state.history = []; render(); push('bot', CONFIG.greeting);
   });
 
   push('bot', CONFIG.greeting);
