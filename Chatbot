@@ -1,0 +1,447 @@
+/*
+Plugin Name: N8N Chat Widget - Mobile Card + Table Support
+Description: Mobile card-style widget with Markdown table rendering and fixed interactivity.
+Version: 3.5
+Author: Your Name
+License: MIT
+*/
+
+add_action( 'wp_footer', function() { ?>
+<script>
+(function(){
+  const CONFIG = {
+    webhookUrl: 'Paste n8n webhook url here',
+    title: 'HR Assistant',
+    primaryColor: '#2563EB',
+    greeting: 'Hi! I am your HR assistant. How can I help you today?',
+    DEV_LOG_CONSOLE: true
+  };
+
+  // --- Dynamic Viewport Handling ---
+  function updateViewportHeight() {
+    if (window.visualViewport) {
+      document.documentElement.style.setProperty('--n8n-real-height', `${window.visualViewport.height}px`);
+    }
+  }
+
+  const style = document.createElement('style');
+  style.innerHTML = `
+    * { box-sizing: border-box; }
+    
+    :root { --n8n-real-height: 100vh; }
+
+    /* Base widget container */
+    #n8n-chat-widget {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 2147483647;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Launcher */
+    .n8n-launcher {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: ${CONFIG.primaryColor};
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+      transition: transform 0.2s;
+      font-size: 24px;
+      z-index: 2147483647;
+    }
+    .n8n-launcher:hover { transform: scale(1.05); }
+
+    /* Window */
+    .n8n-window {
+      position: fixed;
+      right: 20px;
+      bottom: 100px;
+      width: 400px;
+      height: 600px;
+      max-height: 80vh;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 5px 40px rgba(0,0,0,0.2);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      transform-origin: bottom right;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 2147483647; 
+    }
+
+    .n8n-window.open { display: flex; animation: n8nFadeIn 0.2s forwards; }
+
+    @keyframes n8nFadeIn {
+        from { opacity: 0; transform: translateY(20px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Header */
+    .n8n-header {
+      background: ${CONFIG.primaryColor};
+      color: #fff;
+      padding: 16px;
+      font-weight: 600;
+      font-size: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .n8n-header-badge {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      margin-left: 8px;
+    }
+
+    .n8n-close-btn, .n8n-clear-btn {
+      background: transparent;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0 8px;
+    }
+
+    /* Messages Area */
+    .n8n-messages-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #f8fafc;
+      overflow: hidden;
+    }
+
+    .n8n-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .n8n-msg {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      line-height: 1.5;
+      font-size: 14px;
+      word-wrap: break-word;
+    }
+
+    .n8n-msg.bot {
+      align-self: flex-start;
+      background: #fff;
+      color: #333;
+      border: 1px solid #e2e8f0;
+      border-bottom-left-radius: 2px;
+    }
+
+    .n8n-msg.user {
+      align-self: flex-end;
+      background: ${CONFIG.primaryColor};
+      color: #fff;
+      border-bottom-right-radius: 2px;
+    }
+
+    /* --- TABLE STYLES --- */
+    .n8n-table-container {
+      width: 100%;
+      overflow-x: auto; /* scroll horizontally on mobile */
+      margin-top: 8px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+    }
+    
+    .n8n-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    
+    .n8n-table th {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 600;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+    }
+    
+    .n8n-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #334155;
+      min-width: 100px;
+    }
+    
+    .n8n-table tr:last-child td { border-bottom: none; }
+
+    /* Input */
+    .n8n-input-area {
+      padding: 12px;
+      background: #fff;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom)); 
+      z-index: 10;
+    }
+
+    .n8n-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 20px;
+      border: 1px solid #ddd;
+      font-size: 16px;
+      outline: none;
+    }
+    .n8n-input:focus { border-color: ${CONFIG.primaryColor}; }
+
+    .n8n-send-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: ${CONFIG.primaryColor};
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .n8n-typing { display: none; padding: 0 20px 10px; font-size: 12px; color: #888; }
+    .n8n-typing.active { display: block; }
+    
+    /* --- MOBILE CARD STYLE --- */
+    @media (max-width: 600px) {
+      .n8n-window {
+        position: fixed;
+        left: 15px;
+        right: 15px;
+        bottom: 20px;
+        top: auto;
+        width: auto;
+        height: 70vh;
+        max-height: 650px;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        z-index: 2147483647 !important;
+      }
+      body.n8n-chat-open .n8n-launcher { display: none !important; }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // --- HTML ---
+  const root = document.createElement('div');
+  root.id = 'n8n-chat-widget';
+  root.innerHTML = `
+    <div class="n8n-window" aria-hidden="true">
+      <div class="n8n-header">
+        <div style="display:flex;align-items:center">${CONFIG.title} <span class="n8n-header-badge">HR</span></div>
+        <div>
+          <button class="n8n-clear-btn" title="Clear">🗑️</button>
+          <button class="n8n-close-btn" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="n8n-messages-container">
+        <div class="n8n-messages"></div>
+        <div class="n8n-typing">Typing...</div>
+      </div>
+      <form class="n8n-input-area">
+        <input class="n8n-input" type="text" placeholder="Type a message..." autocomplete="off" />
+        <button type="submit" class="n8n-send-btn">➤</button>
+      </form>
+    </div>
+    <button class="n8n-launcher">💬</button>
+  `;
+  document.body.appendChild(root);
+
+  // --- Logic ---
+  let sessionId = 'sess_' + Math.random().toString(36).slice(2,11);
+  const state = { history: [], isOpen: false };
+  const els = {
+    window: root.querySelector('.n8n-window'),
+    input: root.querySelector('.n8n-input'),
+    msgs: root.querySelector('.n8n-messages'),
+    typing: root.querySelector('.n8n-typing'),
+    launcher: root.querySelector('.n8n-launcher'),
+    form: root.querySelector('form'),
+    closeBtn: root.querySelector('.n8n-close-btn'),
+    clearBtn: root.querySelector('.n8n-clear-btn')
+  };
+
+  // --- TABLE PARSERS ---
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function renderTableHTML(rows) {
+    if(!rows || rows.length < 2) return '';
+    const headers = rows[0];
+    const data = rows.slice(1);
+    
+    let html = '<div class="n8n-table-container"><table class="n8n-table"><thead><tr>';
+    headers.forEach(h => html += `<th>${formatText(h)}</th>`);
+    html += '</tr></thead><tbody>';
+    
+    data.forEach(row => {
+        html += '<tr>';
+        row.forEach(cell => html += `<td>${formatText(cell)}</td>`);
+        html += '</tr>';
+    });
+    return html + '</tbody></table></div>';
+  }
+
+  function formatText(text) {
+    return escapeHtml(text)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') // Bold
+      .replace(/\n/g, '<br>');
+  }
+
+  function formatMessage(text) {
+    if (!text) return '';
+
+    // 1. Check for Table structure (lines with | )
+    const lines = text.split('\n');
+    let intro = [];
+    let tableRows = [];
+    let outro = [];
+    let inTable = false;
+
+    // Simple parser: If a line has '|', it's part of the table.
+    // Text before the first pipe is intro.
+    for (let line of lines) {
+        if (line.trim().includes('|')) {
+            inTable = true;
+            // Skip separator lines like |---|---|
+            if (!line.match(/^[\s\|\-\:]+$/)) {
+                const cells = line.split('|').map(c => c.trim()).filter(c => c.length > 0);
+                if (cells.length > 0) tableRows.push(cells);
+            }
+        } else {
+            if (inTable) outro.push(line);
+            else intro.push(line);
+        }
+    }
+
+    if (tableRows.length >= 2) {
+        // We found a valid table
+        let finalHtml = '';
+        if (intro.length) finalHtml += `<div style="margin-bottom:10px">${formatText(intro.join('\n'))}</div>`;
+        finalHtml += renderTableHTML(tableRows);
+        if (outro.length) finalHtml += `<div style="margin-top:10px">${formatText(outro.join('\n'))}</div>`;
+        return finalHtml;
+    }
+
+    // No table, just return text
+    return formatText(text);
+  }
+
+  // --- CORE FUNCTIONS ---
+  function push(role, text) {
+    // If bot, format the message (render tables). If user, just text.
+    const displayContent = role === 'bot' ? formatMessage(text) : escapeHtml(text);
+    
+    state.history.push({ role, content: displayContent });
+    render();
+  }
+
+  function render() {
+    els.msgs.innerHTML = state.history.map(m => 
+      `<div class="n8n-msg ${m.role}">${m.content}</div>`
+    ).join('');
+    els.msgs.scrollTop = els.msgs.scrollHeight;
+  }
+
+  function findFirstText(obj) {
+    if (!obj) return null;
+    if (typeof obj === 'string') return obj;
+    if (obj.myResult) return findFirstText(obj.myResult);
+    const keys = ['output', 'text', 'message', 'content', 'response', 'answer'];
+    for (const key of keys) { if (obj[key]) return findFirstText(obj[key]); }
+    if (obj.json) return findFirstText(obj.json);
+    if (typeof obj === 'object') {
+        const vals = Object.values(obj);
+        if (vals.length === 1 && typeof vals[0] === 'string') return vals[0];
+    }
+    return JSON.stringify(obj);
+  }
+
+  els.form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const text = els.input.value.trim();
+    if (!text) return;
+    
+    push('user', text);
+    els.input.value = '';
+    els.typing.classList.add('active');
+    
+    try {
+      const res = await fetch(CONFIG.webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatInput: text, sessionId: sessionId })
+      });
+      
+      const raw = await res.json();
+      const cleanText = findFirstText(raw) || 'Empty response';
+      push('bot', cleanText);
+      
+    } catch(err) {
+      push('bot', '⚠️ Error connecting to assistant.');
+      console.error(err);
+    } finally {
+      els.typing.classList.remove('active');
+    }
+  });
+
+  function toggle(open) {
+    state.isOpen = open;
+    if (open) {
+      els.window.classList.add('open');
+      els.window.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('n8n-chat-open');
+      if(window.innerWidth > 600) els.launcher.style.display = 'none';
+      setTimeout(() => els.input.focus(), 100);
+    } else {
+      els.window.classList.remove('open');
+      els.window.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('n8n-chat-open');
+      els.launcher.style.display = 'flex';
+    }
+  }
+
+  els.launcher.addEventListener('click', () => toggle(true));
+  els.closeBtn.addEventListener('click', () => toggle(false));
+  els.clearBtn.addEventListener('click', () => {
+     state.history = []; render(); push('bot', CONFIG.greeting);
+  });
+
+  push('bot', CONFIG.greeting);
+  
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateViewportHeight);
+  }
+})();
+</script>
+<?php } );
